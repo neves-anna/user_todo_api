@@ -97,14 +97,17 @@ def test_read_user_by_id(client, user_id, user):
         # Para o caso de user_id inválido (-1), esperamos 404 NOT FOUND
         response = client.get(f'/users/{user_id}')
         assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json() == {'detail': 'Usuário não encontrado'}
+        assert response.json() == {'detail': 'User not found'}
 
 
-def test_update_user(client, user, user_id):
+def test_update_user(client, user, user_id, token):
+    headers = {'Authorization': f'Bearer {token}'}
+
     if user_id == user.id:
-        # Testa a atualização do usuário existente
+        # Testa a atualização do usuário existente com autenticação
         response = client.put(
             f'/users/{user.id}',
+            headers=headers,  # Inclui o token no cabeçalho
             json={
                 'username': 'bob',
                 'email': 'bob@example.com',
@@ -118,27 +121,42 @@ def test_update_user(client, user, user_id):
             'id': user.id,
         }
     else:
-        # Testa a atualização com um user_id inválido
+        # Testa a atualização com um user_id inválido, deve retornar 403 Forbidden
         response = client.put(
             f'/users/{user_id}',
+            headers=headers,  # Inclui o token no cabeçalho
             json={
                 'username': 'bob',
                 'email': 'bob@example.com',
                 'password': 'mynewpassword',
             },
         )
-        assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json() == {'detail': 'User not found'}
+        assert response.status_code == HTTPStatus.FORBIDDEN  # Ajustado para esperar 403
+        assert response.json() == {'detail': 'Not enough permissions'}
 
 
-def test_delete_user(client, user, user_id):
+def test_delete_user(client, user, user_id, token):
+    headers = {'Authorization': f'Bearer {token}'}
+
     if user_id == user.id:
-        # Testa a exclusão do usuário existente
-        response = client.delete(f'/users/{user.id}')
+        # Testa a exclusão do usuário existente com autenticação
+        response = client.delete(f'/users/{user.id}', headers=headers)
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {'message': 'User deleted'}
     else:
-        # Testa a exclusão com um user_id inválido
-        response = client.delete(f'/users/{user_id}')
-        assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json() == {'detail': 'User not found'}
+        # Testa a exclusão com um user_id inválido ou diferente, deve retornar 403 Forbidden
+        response = client.delete(f'/users/{user_id}', headers=headers)
+        assert response.status_code == HTTPStatus.FORBIDDEN  # Ajuste para 403 Forbidden
+        assert response.json() == {'detail': 'Not enough permissions'}
+
+
+def test_get_token(client, user):
+    response = client.post(
+        '/token',
+        data={'username': user.email, 'password': user.clean_password},
+    )
+    token = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert 'access_token' in token
+    assert 'token_type' in token
