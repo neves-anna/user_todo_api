@@ -10,6 +10,9 @@ python = "3.12.5"
 fastapi = {extras = ["all"], version = "^0.112.1"}
 httpx = "^0.27.0"
 fastapi-cli = "^0.0.5"
+sqlalchemy = "^2.0.32"
+pydantic-settings = "2.3.4"
+alembic = "^1.13.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.1"
@@ -26,7 +29,7 @@ test = 'pytest -s -x --cov=user_todo_api -vv'
 post_test = 'coverage html'
 
 [tool.ruff]
-line-length = 79
+line-length = 100
 extend-exclude = ['migrations']
 
 [tool.ruff.lint]
