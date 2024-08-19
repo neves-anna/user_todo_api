@@ -1,14 +1,23 @@
 from http import HTTPStatus
 
+from sqlalchemy.orm import Session
 
-def test_root_deve_retornar_ok_e_ola_mundo(client):
-    response = client.get('/')
-
-    assert response.status_code == HTTPStatus.OK
-    assert response.json() == {'message': 'Olá Mundo!'}
+from user_todo_api.database import get_session
+from user_todo_api.schemas import UserPublicSchema
 
 
-def test_create_user(client):
+def test_get_session():
+    # Testa se o get_session retorna uma instância válida de Session
+    session_from_get_session = next(get_session())
+    assert isinstance(session_from_get_session, Session)
+
+    # Testa se o objeto session_from_get_session foi criado corretamente
+    assert session_from_get_session.bind is not None
+    assert session_from_get_session.is_active
+
+
+def test_create_user_success(client):
+    # Testa a criação de um novo usuário
     response = client.post(
         '/users/',
         json={
@@ -21,82 +30,115 @@ def test_create_user(client):
     assert response.json() == {
         'username': 'alice',
         'email': 'alice@example.com',
-        'id': 1,
+        'id': 1,  # Assumindo que é o primeiro usuário criado
     }
 
 
-def test_read_all_users(client):
-    response = client.get('/users/')
-    assert response.status_code == HTTPStatus.OK
-    assert response.json() == {
-        'users': [
-            {
-                'username': 'alice',
-                'email': 'alice@example.com',
-                'id': 1,
-            }
-        ]
-    }
-
-
-def test_read_user_by_id(client, user_id):
-    # Se o user_id for válido (1), primeiro criamos um usuário
-    if user_id == 1:
-        response = client.post(
-            '/users/',
-            json={
-                'username': 'alice',
-                'email': 'alice@example.com',
-                'password': 'alicepassword',
-            },
-        )
-        assert response.status_code == HTTPStatus.CREATED
-        created_user_id = response.json()['id']
-    else:
-        created_user_id = user_id  # Para o caso de user_id inválido, usamos o valor diretamente
-
-    response = client.get(f'/users/{created_user_id}')
-
-    if user_id == 1:
-        assert response.status_code == HTTPStatus.OK
-        assert response.json() == {
-            'username': 'alice',
-            'email': 'alice@example.com',
-            'id': created_user_id,
-        }
-    else:
-        assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json() == {'detail': 'Usuario não encontrado'}
-
-
-def test_update_user(client, user_id):
-    response = client.put(
-        f'/users/{user_id}',
+def test_create_user_username_already_exists(client, user):
+    # Testa a criação de um usuário com username já existente
+    response = client.post(
+        '/users/',
         json={
-            'username': 'bob' if user_id == 1 else 'invalid',
-            'email': 'bob@example.com' if user_id == 1 else 'invalid@example.com',
-            'password': 'mynewpassword' if user_id == 1 else 'invalid',
+            'username': user.username,  # Usa o username da fixture 'user'
+            'email': 'alice_new@example.com',
+            'password': 'secret',
         },
     )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.json() == {'detail': 'Username already exists'}
 
+
+def test_create_user_email_already_exists(client, user):
+    # Testa a criação de um usuário com email já existente
+    response = client.post(
+        '/users/',
+        json={
+            'username': 'alice_new',
+            'email': user.email,  # Usa o email da fixture 'user'
+            'password': 'secret',
+        },
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.json() == {'detail': 'Email already exists'}
+
+
+def test_read_users(client):
+    # Faz uma requisição GET para a lista de usuários
+    response = client.get('/users')
+
+    # Verifica se a resposta é 200 OK
+    assert response.status_code == HTTPStatus.OK
+
+    # Verifica se a lista de usuários retornada está vazia (nenhum usuário no banco)
+    assert response.json() == {'users': []}
+
+
+def test_read_users_with_users(client, user):
+    # Valida o usuário criado pela fixture e gera um dicionário com o schema esperado
+    user_schema = UserPublicSchema.model_validate(user).model_dump()
+
+    # Faz uma requisição GET para a lista de usuários
+    response = client.get('/users/')
+
+    # Verifica se a resposta contém o usuário criado na lista
+    assert response.json() == {'users': [user_schema]}
+
+
+def test_read_user_by_id(client, user_id, user):
     if user_id == 1:
+        # Para o caso de user_id válido, usamos o usuário criado pela fixture
+        response = client.get(f'/users/{user.id}')
+        assert response.status_code == HTTPStatus.OK
+
+        # Validamos os dados retornados
+        user_schema = UserPublicSchema.model_validate(user).model_dump()
+        assert response.json() == user_schema
+    else:
+        # Para o caso de user_id inválido (-1), esperamos 404 NOT FOUND
+        response = client.get(f'/users/{user_id}')
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.json() == {'detail': 'Usuário não encontrado'}
+
+
+def test_update_user(client, user, user_id):
+    if user_id == user.id:
+        # Testa a atualização do usuário existente
+        response = client.put(
+            f'/users/{user.id}',
+            json={
+                'username': 'bob',
+                'email': 'bob@example.com',
+                'password': 'mynewpassword',
+            },
+        )
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {
             'username': 'bob',
             'email': 'bob@example.com',
-            'id': 1,
+            'id': user.id,
         }
     else:
+        # Testa a atualização com um user_id inválido
+        response = client.put(
+            f'/users/{user_id}',
+            json={
+                'username': 'bob',
+                'email': 'bob@example.com',
+                'password': 'mynewpassword',
+            },
+        )
         assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json() == {'detail': 'Usuario não encontrado'}
+        assert response.json() == {'detail': 'User not found'}
 
 
-def test_delete_user(client, user_id):
-    response = client.delete(f'/users/{user_id}')
-
-    if user_id == 1:
+def test_delete_user(client, user, user_id):
+    if user_id == user.id:
+        # Testa a exclusão do usuário existente
+        response = client.delete(f'/users/{user.id}')
         assert response.status_code == HTTPStatus.OK
-        assert response.json() == {'message': 'Usuario deletado'}
+        assert response.json() == {'message': 'User deleted'}
     else:
+        # Testa a exclusão com um user_id inválido
+        response = client.delete(f'/users/{user_id}')
         assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json() == {'detail': 'Usuario não encontrado'}
+        assert response.json() == {'detail': 'User not found'}
