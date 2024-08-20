@@ -28,8 +28,8 @@ jobs:
           python -m pip install pipx
           pipx install poetry
 
-      - name: Force Poetry to use Python 3.12.5
-        run: poetry env use python3.12.5
+      - name: Force Poetry to use Python 3.12
+        run: poetry env use python3.12
 
       - name: Cache Poetry dependencies
         uses: actions/cache@v3
