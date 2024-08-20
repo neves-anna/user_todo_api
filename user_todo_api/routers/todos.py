@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,7 +24,7 @@ T_CurrentUser = Annotated[User, Depends(get_current_user)]
 router = APIRouter(prefix='/todos', tags=['todos'])
 
 
-@router.post('/', response_model=TodoPublic, status_code=status.HTTP_201_CREATED)
+@router.post('/', response_model=TodoPublic, status_code=HTTPStatus.CREATED)
 def create_todo(
     todo: TodoSchema,
     user: T_CurrentUser,
@@ -35,11 +35,11 @@ def create_todo(
         description=todo.description,
         state=todo.state,
         user_id=user.id,
-        # created_at e updated_at serão preenchidos automaticamente pelo banco de dados
     )
     session.add(db_todo)
     session.commit()
     session.refresh(db_todo)
+
     return db_todo
 
 

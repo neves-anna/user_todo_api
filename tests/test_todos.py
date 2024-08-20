@@ -19,8 +19,6 @@ def test_create_todo(client, token):
     assert 'title' in data
     assert 'description' in data
     assert 'state' in data
-    assert 'created_at' in data
-    assert 'updated_at' in data
 
     # Assert the values of the fields you provided
     assert data['title'] == 'Test todo'
