@@ -30,7 +30,7 @@ def test_token_expired_after_time(client, user):
             headers={'Authorization': f'Bearer {token}'},
             json={
                 'username': 'wrongwrong',
-                'email': 'wrong@wrong.com',
+                'email': 'wrong@wr ong.com',
                 'password': 'wrong',
             },
         )
