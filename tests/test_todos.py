@@ -12,15 +12,13 @@ def test_create_todo(client, token):
     )
     data = response.json()
 
-    assert response.status_code == HTTPStatus.CREATED  # Check for successful creation
+    assert response.status_code == HTTPStatus.CREATED
 
-    # Assert the expected fields are present
     assert 'id' in data
     assert 'title' in data
     assert 'description' in data
     assert 'state' in data
 
-    # Assert the values of the fields you provided
     assert data['title'] == 'Test todo'
     assert data['description'] == 'Test todo description'
     assert data['state'] == 'draft'
